@@ -126,7 +126,13 @@ if st.button("Find Movies"):
             st.warning(f"Couldn't find: {', '.join(not_found)}. Skipped.")
 
         if results.empty:
-            st.error("None of your titles were found. Try checking spelling.")
+            st.warning("We couldn't match your titles. Here are some well-rated films.")
+            fallback = df.nlargest(5, "pop_score")
+            for _, row in fallback.iterrows():
+                st.markdown(f"**{row['title']}**")
+                st.write(f"Genres: {', '.join(row['genres'])}")
+                st.write(f"Rating: {row['vote_average']:.1f}/10")
+                st.divider()
         else:
             if len(results) < 5:
                 st.info(f"Only {len(results)} recommendation(s) found.")
