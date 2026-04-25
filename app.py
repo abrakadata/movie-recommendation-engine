@@ -1,4 +1,5 @@
 import ast
+import base64
 import os
 
 import numpy as np
@@ -113,7 +114,7 @@ def recommend(seed_titles, df, matrix, content_weight=0.75, pop_weight=0.25, n=5
 def explain(row, seed_genres):
     shared = [g for g in row["genres"] if g in seed_genres]
     if shared:
-        bullet1 = "Shares genres: " + ", ".join(shared)
+        bullet1 = ", ".join(shared)
     else:
         bullet1 = "Similar themes and storyline"
 
@@ -131,13 +132,12 @@ def _display_table(results):
 
     table = pd.DataFrame({
         "Title": results["title"],
-        "Genres": results["genres"].apply(lambda g: ", ".join(g)),
-        "Rating": results["vote_average"].apply(lambda v: round(float(v), 1)),
-        "Why": (
-            results["explanation"].apply(lambda e: " · ".join(e))
+        "Genre": (
+            results["explanation"].apply(lambda e: e[0])
             if not is_fallback
-            else ""
+            else results["genres"].apply(lambda g: ", ".join(g))
         ),
+        "Rating": results["vote_average"].apply(lambda v: round(float(v), 1)),
     })
 
     st.dataframe(
@@ -146,7 +146,7 @@ def _display_table(results):
         hide_index=True,
         column_config={
             "Title": st.column_config.TextColumn("Title", width="medium"),
-            "Genres": st.column_config.TextColumn("Genres", width="medium"),
+            "Genre": st.column_config.TextColumn("Genre", width="medium"),
             "Rating": st.column_config.ProgressColumn(
                 "Rating",
                 min_value=0,
@@ -154,7 +154,6 @@ def _display_table(results):
                 format="%.1f",
                 width="small",
             ),
-            "Why": st.column_config.TextColumn("Why", width="large"),
         },
     )
 
@@ -177,10 +176,14 @@ div.stButton > button:hover {
 [data-testid="collapsedControl"] {
     display: none;
 }
+div[role="radiogroup"] label {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Movie Recommender")
+st.title("Movie Recommendations" if "results" in st.session_state else "Enter some movies you like")
 
 df = load_data(DATA_PATH)
 if "emb" not in st.session_state:
@@ -195,7 +198,7 @@ _PRIORITY_OPTIONS = {
 
 with st.sidebar:
     st.markdown(
-        '<p style="font-size:1.4rem; font-weight:700; color:#198754;">Recommendation Priority</p>',
+        '<p style="font-size:2.6rem; font-weight:800; color:#198754; line-height:1.2; margin-bottom:1.5rem; text-align:center;">Priority</p>',
         unsafe_allow_html=True,
     )
     priority = st.radio(
@@ -204,11 +207,15 @@ with st.sidebar:
         index=0,
         label_visibility="collapsed",
     )
+    st.markdown(
+        '<p style="color:#fafafa; font-size:0.85rem; margin-top:3rem;"><strong>Note</strong> — Choose how much weight to give genre/theme similarity vs. overall popularity when ranking results.</p>',
+        unsafe_allow_html=True,
+    )
 
 content_w, pop_w = _PRIORITY_OPTIONS[priority]
 
 if "results" not in st.session_state:
-    user_input = st.text_input("Enter 3–5 movies you like (comma-separated)")
+    user_input = st.text_input("Enter 3–5 movies (comma-separated)")
 
     if st.button("Find Movies"):
         if not user_input.strip():
