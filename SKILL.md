@@ -1,31 +1,32 @@
 ---
 name: movie-recommendation-engine
-description: 'Build a 4-hour school project movie recommender. Use when you need a working-first Streamlit app with local tmdb_5000_movies.csv, hybrid scoring, top-5 recommendations, and short why explanations.'
+description: 'Build a Streamlit movie recommendation engine with sentence-transformer embeddings, hybrid scoring, configurable weighting sidebar, table results display, and embedding progress bar.'
 argument-hint: 'Describe your deadline, dataset status, and desired recommendation style.'
 user-invocable: true
 disable-model-invocation: false
 ---
 
-# School Film Recommender (4-Hour Build)
+# Movie Recommendation Engine
 
 ## What This Skill Produces
 
-This skill drives a strict workflow to produce a working, demo-ready AI-powered film recommendation project with:
-- Streamlit UI
-- Kaggle dataset file `movies_metadata.csv` from The Movies Dataset
+A working, demo-ready AI-powered movie recommendation app with:
+- Streamlit UI with sidebar, table results, and Restart button
+- TMDB dataset (`movies_metadata.csv`, ~4,775 movies)
+- Sentence-transformer embeddings (`all-MiniLM-L6-v2`, 384-dim)
 - Hybrid recommendation logic (content similarity + popularity weighting)
-- Top 5 recommendations
-- Two-bullet why explanations for each recommendation
-- Working-first implementation and validation
+- Configurable weighting via sidebar (75/25, 25/75, 50/50)
+- Top 5 recommendations in an interactive `st.dataframe` table
+- Two-bullet why explanations per recommendation
+- Embedding progress bar on first launch, `.npy` disk cache on subsequent runs
 
 ## When To Use
 
 Use this when:
-- You have a school deadline in a few hours
-- Grading priority is functionality over polish
-- You need one strong Kaggle file with minimal setup
-- You need simple, robust architecture decisions quickly
-- You want minimal questioning and maximum execution speed
+- You need a working recommendation engine quickly
+- You want a polished Streamlit UI with minimal setup
+- You have `movies_metadata.csv` (TMDB) available locally
+- You want hybrid scoring with user-controllable weights
 
 ## Interaction Rules
 
@@ -43,7 +44,7 @@ Collect only these essentials:
 - Deadline and grading priority
 - Data source availability (`movies_metadata.csv` present or not)
 - Interface (`Streamlit`)
-- Required output (`top 5` and two-bullet why explanations)
+- Required output (top 5 + why explanations)
 
 If any item is missing, ask one concise question per missing item.
 
@@ -74,15 +75,17 @@ Completion check:
 
 Create a strict plan that fits the remaining time.
 
-Default 4-hour split:
+Default split:
 1. Data loading and cleaning: 35 minutes
-2. Recommender logic (hybrid scoring): 70 minutes
-3. Streamlit UI: 55 minutes
-4. Explanation generation and ranking polish: 25 minutes
-5. Testing and bug fixing: 35 minutes
-6. Demo script/readme notes: 20 minutes
+2. Sentence-transformer embeddings + cosine similarity: 40 minutes
+3. Popularity score (Bayesian normalization): 20 minutes
+4. Hybrid scoring + top-5 output: 30 minutes
+5. Why explanations: 20 minutes
+6. Streamlit UI (sidebar, table, progress bar, Restart button): 45 minutes
+7. Edge case hardening: 20 minutes
+8. README and demo prep: 10 minutes
 
-If time left is less than 4 hours, proportionally shrink UI and polish first, never core functionality.
+If time is short, shrink UI polish first — never cut Steps 1–4.
 
 Completion check:
 - Every block has a concrete output artifact.
@@ -90,29 +93,28 @@ Completion check:
 ### Step 4: Implementation Defaults
 
 Use these default choices unless user overrides:
-- Parse `genres` and `overview` text fields into normalized tokens.
-- Build content vectors (TF-IDF or CountVectorizer) from combined token text.
-- Compute content similarity from user seed movies.
-- Add popularity prior from `popularity`, `vote_average`, and `vote_count` with conservative normalization.
-- Hybrid score formula:
-  - `score = 0.75 * content_score + 0.25 * popularity_score`
-- Deduplicate and filter out seed movies from results.
-- Return top 5 recommendations.
+- Parse `genres` JSON strings into plain Python lists.
+- Drop rows with empty `overview` or empty genre lists.
+- Build feature text: `genres joined by space` + `overview`.
+- Encode with `SentenceTransformer("all-MiniLM-L6-v2")` in batches of 64.
+- Cache matrix to `embeddings_cache.npy`; load on subsequent runs.
+- Use `st.session_state` to avoid recomputing on Streamlit reruns.
+- Popularity score: `(vote_average / 10) * log1p(vote_count) / max(log1p(vote_count))`.
+- Default hybrid formula: `score = 0.75 * content_score + 0.25 * pop_score`.
+- Expose weighting via sidebar radio with three presets.
+- Deduplicate seed titles; exclude seed movies from results.
+- Return top 5 as `st.dataframe` with Title, Genres, Rating (ProgressColumn), Why.
 
 Completion check:
 - Repeated runs with same input produce stable recommendations.
 
 ### Step 5: Why Explanations
 
-For each recommendation, generate one short explanation using available signals:
-- Shared genres
-- Shared themes from overview text
-- Strong audience signal (rating/popularity)
+For each recommendation generate two bullets:
+- Similarity: shared genre names between result and seed union; fallback to "Similar themes and storyline".
+- Quality: `"Rated X.X/10 by audiences"` or `"Popular with audiences"` if rating missing.
 
-Explanation format:
-- Exactly two bullets:
-  - Similarity reason
-  - Popularity/quality reason
+Display as a single joined string in the Why column (` · ` separator).
 
 Completion check:
 - Each of top 5 has a distinct and credible why statement.
@@ -120,35 +122,31 @@ Completion check:
 ### Step 6: Working Validation
 
 Run these tests before calling complete:
-1. User enters valid 3 to 5 movie titles -> app returns 5 recommendations.
-2. Unknown title handling -> app gives clear retry guidance.
-3. Duplicate input titles -> app handles gracefully.
-4. Missing fields in dataset -> app still runs with fallback logic.
-5. Empty results edge case -> app returns a helpful fallback list.
+1. Valid 3–5 movie titles → app returns 5 recommendations in table.
+2. Unknown title → warning shown, remaining seeds still used.
+3. Duplicate input titles → treated as one seed.
+4. Missing dataset fields → fallback logic, no crash.
+5. Empty results → top 5 by pop_score shown with explanatory note.
+6. Restart button → clears results, returns to input state.
 
 Completion check:
-- All 5 checks pass.
+- All 6 checks pass.
 
 ## Decision Branches
 
-- If `movies_metadata.csv` is missing:
-  - Ask for file path once.
-  - If unavailable, switch to `tmdb_5000_movies.csv` and clearly disclose the fallback.
-
-- If parsing is too slow or brittle:
-  - Reduce features to `genres + keywords + overview`.
-  - Keep hybrid weighting and top-5 output unchanged.
-
-- If recommendation quality is weak:
-  - Increase content weight to 0.8 and reduce popularity weight to 0.2.
-  - Re-test explanations.
+- If `movies_metadata.csv` is missing: ask for file path once.
+- If embedding build is slow: reduce batch size to 32 or use a smaller model.
+- If recommendation quality is weak: increase content weight to 0.8.
+- If a movie is not found: warn and skip — do not crash.
 
 ## Done Criteria
 
 Declare completion only when all are true:
-- App launches locally and accepts user movie seeds.
-- Returns top 5 recommendations with why explanations.
+- App launches and accepts movie seeds.
+- Returns top 5 in a table with why explanations.
+- Sidebar weight selector works correctly.
 - Handles common input and data edge cases.
+- Restart button resets the app cleanly.
 - Logic and UI are understandable in a short live demo.
 
 ## Response Style

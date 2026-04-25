@@ -1,4 +1,4 @@
-# Build Plan — Movie Recommender
+# Build Plan — Movie Recommendation Engine
 
 Total estimated time: 4 hours. Each step has a concrete output and a pass/fail check before moving on.
 
@@ -176,39 +176,39 @@ Total estimated time: 4 hours. Each step has a concrete output and a pass/fail c
 
 ---
 
-## Step 9 — Embedding Progress Bar (10 min)
+## Step 9 — Embedding Progress Bar ✅
 
 **Goal:** Show a Streamlit progress bar while embeddings are being built so the user knows the app is working.
 
-### Tasks
-1. Replace the `build_embedding_matrix` call at startup with a version that wraps encoding in `st.progress` — increment the bar as each batch is encoded.
-2. Use `SentenceTransformer.encode` with a small `batch_size` and iterate manually so progress can be reported per batch.
-3. Remove the `@st.cache_data` decorator conflict — progress UI only shows on first load; subsequent runs hit the cache as normal.
-
-### Check before moving on
-- On first launch (cold cache) a progress bar advances from 0 → 100% then disappears.
-- On reload the bar does not appear (cache hit).
+**Implemented:** Batched encoding with `st.progress`, disk cache at `embeddings_cache.npy`, `st.session_state` prevents recomputation on reruns. Progress bar only shows on cold start.
 
 ---
 
-## Step 10 — Table Display for Recommendations (15 min)
+## Step 10 — Table Display for Recommendations ✅
 
 **Goal:** Replace the card-style results display with a compact, scannable table.
 
-### Tasks
-1. Replace the per-movie card rendering in the Streamlit UI with a single `st.dataframe` or `st.table` call.
-2. Columns to show: `Title`, `Genres`, `Rating`, `Why` (join the two explanation bullets into one cell, e.g. separated by ` | `).
-3. Format `genres` as a comma-separated string and `vote_average` as `X.X/10`.
-
-### Check before moving on
-- Enter 3 movies and confirm results render as a table with the four columns above.
-- No card markup remaining in the results section.
+**Implemented:** `st.dataframe` with `column_config` — Title, Genres, Rating (ProgressColumn), Why columns. `hide_index=True`, `use_container_width=True`.
 
 ---
 
-## If Time Runs Short
+## Step 11 — UI Polish ✅
 
-Cut in this order — never cut Step 1–4 or Step 6:
-1. Trim Step 7 to only the duplicate-title and unknown-title cases.
-2. Skip Step 8 README (keep demo script mental rehearsal).
-3. Simplify Step 5 explanations to one bullet instead of two.
+**Goal:** Sleek, professional UI.
+
+**Implemented:**
+- Blue button (`#3b82f6`) with hover state (`#2563eb`)
+- Non-collapsible sidebar with Recommendation Priority radio selector (3 weight presets)
+- Sidebar header in Bootstrap green (`#198754`) at `2rem` bold
+- Restart button replaces Find Movies after results are shown
+- Title updated to "Movie Recommendation Engine"
+
+---
+
+## Step 12 — Dataset Cleanup ✅
+
+**Goal:** Remove low-quality rows that degrade recommendation quality.
+
+**Implemented:** Deleted 28 movies with empty genre lists (obscure/foreign/indie titles with no genre metadata). Dataset trimmed from 4,803 → 4,775 movies.
+
+---
