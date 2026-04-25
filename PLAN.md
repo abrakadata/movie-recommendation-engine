@@ -23,13 +23,13 @@ Total estimated time: 4 hours. Each step has a concrete output and a pass/fail c
 
 ## Step 2 — Content Vectors (40 min)
 
-**Goal:** Build a TF-IDF matrix from movie text and compute similarity to seed movies.
+**Goal:** Build a semantic embedding matrix from movie text and compute similarity to seed movies.
 
 ### Tasks
 1. Write `build_feature_text(df)` — concatenates genre names + overview into one string per movie.
    - Example: `"Drama Romance A young woman falls in love..."`.
-2. Write `build_tfidf_matrix(texts)` — fits a `TfidfVectorizer` (max 5000 features, English stop words) and returns the matrix.
-3. Write `get_content_scores(seed_indices, tfidf_matrix)` — computes cosine similarity between seed rows and all rows, averages across seeds, returns a 1D array of scores.
+2. Write `build_embedding_matrix(texts)` — encodes texts with `all-MiniLM-L6-v2` (sentence-transformers), returns a `(n, 384)` numpy array. Decorated with `@st.cache_data`.
+3. Write `get_content_scores(seed_indices, matrix)` — computes cosine similarity between seed rows and all rows, averages across seeds, returns a 1D array of scores.
 
 ### Check before moving on
 - Pick two known movies, get their row indices, call `get_content_scores`.
@@ -58,7 +58,7 @@ Total estimated time: 4 hours. Each step has a concrete output and a pass/fail c
 **Goal:** Combine content and popularity scores, filter seeds, return top 5.
 
 ### Tasks
-1. Write `recommend(seed_titles, df, tfidf_matrix, n=5)`:
+1. Write `recommend(seed_titles, df, matrix, n=5)`:
    - Fuzzy-match each seed title to a row (case-insensitive `str.contains`; take first match).
    - Collect seed indices; skip unmatched titles with a warning.
    - Call `get_content_scores` to get content array.
@@ -68,9 +68,9 @@ Total estimated time: 4 hours. Each step has a concrete output and a pass/fail c
 2. Handle edge case: if fewer than 1 seed matches, return empty DataFrame.
 
 ### Check before moving on
-- Call `recommend(["The Dark Knight", "Inception"], df, tfidf_matrix)`.
+- Call `recommend(["The Dark Knight", "Inception"], df, emb)`.
 - Results should be 5 action/thriller films — none of the seeds should appear.
-- Call with a typo like `"Incpetion"` — should still match or gracefully skip.
+- Call with a typo like `"Incpetion"` — should still match (via `str.contains`) or gracefully skip.
 - Call with all unrecognized titles — should return empty DataFrame without crashing.
 
 ---
@@ -97,7 +97,7 @@ Total estimated time: 4 hours. Each step has a concrete output and a pass/fail c
 **Goal:** A single-page app that takes movie titles and shows results.
 
 ### Tasks
-1. Add `@st.cache_data` to `load_data` and `build_tfidf_matrix` — called once at startup.
+1. Add `@st.cache_data` to `load_data` and `build_embedding_matrix` — called once at startup.
 2. UI layout (top to bottom):
    - Title: `"Movie Recommender"`
    - Text input: `"Enter 3–5 movies you like (comma-separated)"`

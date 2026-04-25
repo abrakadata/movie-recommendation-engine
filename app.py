@@ -3,7 +3,7 @@ import ast
 import numpy as np
 import pandas as pd
 import streamlit as st
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 DATA_PATH = "movies_metadata.csv"
@@ -47,18 +47,18 @@ def build_feature_text(df):
 
 
 @st.cache_data
-def build_tfidf_matrix(texts):
-    vectorizer = TfidfVectorizer(max_features=5000, stop_words="english")
-    return vectorizer.fit_transform(texts)
+def build_embedding_matrix(texts):
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    return model.encode(texts.tolist(), show_progress_bar=False)
 
 
-def get_content_scores(seed_indices, tfidf_matrix):
-    seed_vectors = tfidf_matrix[seed_indices]
-    scores = cosine_similarity(seed_vectors, tfidf_matrix)
+def get_content_scores(seed_indices, matrix):
+    seed_vectors = matrix[seed_indices]
+    scores = cosine_similarity(seed_vectors, matrix)
     return scores.mean(axis=0)
 
 
-def recommend(seed_titles, df, tfidf_matrix, n=5):
+def recommend(seed_titles, df, matrix, n=5):
     seed_titles = list(dict.fromkeys(seed_titles))  # deduplicate, preserve order
     seed_indices = []
     exclude_indices = []
@@ -74,7 +74,7 @@ def recommend(seed_titles, df, tfidf_matrix, n=5):
     if not seed_indices:
         return pd.DataFrame(), not_found
 
-    content_scores = get_content_scores(seed_indices, tfidf_matrix)
+    content_scores = get_content_scores(seed_indices, matrix)
     hybrid = 0.75 * content_scores + 0.25 * df["pop_score"].values
 
     for idx in exclude_indices:
@@ -111,7 +111,7 @@ def explain(row, seed_genres):
 st.title("Movie Recommender")
 
 df = load_data(DATA_PATH)
-tfidf = build_tfidf_matrix(build_feature_text(df))
+emb = build_embedding_matrix(build_feature_text(df))
 
 user_input = st.text_input("Enter 3–5 movies you like (comma-separated)")
 
@@ -120,7 +120,7 @@ if st.button("Find Movies"):
         st.warning("Please enter at least one movie title.")
     else:
         seed_titles = [t.strip() for t in user_input.split(",") if t.strip()]
-        results, not_found = recommend(seed_titles, df, tfidf)
+        results, not_found = recommend(seed_titles, df, emb)
 
         if not_found:
             st.warning(f"Couldn't find: {', '.join(not_found)}. Skipped.")
