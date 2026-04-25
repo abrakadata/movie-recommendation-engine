@@ -55,6 +55,27 @@ Why-explanations are built with f-strings using genre lists and rating numbers p
 
 ---
 
+## Environment Rules
+
+### Always run commands in WSL, never in Windows Git Bash
+
+The project lives in WSL. All shell commands (`python`, `streamlit`, `pip`, etc.) must be run inside WSL:
+
+```bash
+wsl -e bash -c "cd '/home/awild/projects/Movie Recommender' && <command>"
+```
+
+**Why:** The `.venv` was created in WSL. Its shebangs point to Linux paths (`/home/awild/...`) that are invisible to Git Bash. Running commands from Git Bash causes "No such file or directory" errors even though the files exist.
+
+**Symptoms of running in Git Bash by mistake:**
+- `streamlit: command not found` after `source .venv/bin/activate`
+- `.venv/bin/python3: No such file or directory` in a shebang error
+- `cd: /home/awild/...: No such file or directory`
+
+If any of these appear, switch to WSL — do not try to fix the path or recreate the venv.
+
+---
+
 ## Decision Checklist (run this before adding anything)
 
 1. Does this make the app work better for the demo? If no, skip it.

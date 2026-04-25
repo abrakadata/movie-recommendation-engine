@@ -176,6 +176,36 @@ Total estimated time: 4 hours. Each step has a concrete output and a pass/fail c
 
 ---
 
+## Step 9 — Embedding Progress Bar (10 min)
+
+**Goal:** Show a Streamlit progress bar while embeddings are being built so the user knows the app is working.
+
+### Tasks
+1. Replace the `build_embedding_matrix` call at startup with a version that wraps encoding in `st.progress` — increment the bar as each batch is encoded.
+2. Use `SentenceTransformer.encode` with a small `batch_size` and iterate manually so progress can be reported per batch.
+3. Remove the `@st.cache_data` decorator conflict — progress UI only shows on first load; subsequent runs hit the cache as normal.
+
+### Check before moving on
+- On first launch (cold cache) a progress bar advances from 0 → 100% then disappears.
+- On reload the bar does not appear (cache hit).
+
+---
+
+## Step 10 — Table Display for Recommendations (15 min)
+
+**Goal:** Replace the card-style results display with a compact, scannable table.
+
+### Tasks
+1. Replace the per-movie card rendering in the Streamlit UI with a single `st.dataframe` or `st.table` call.
+2. Columns to show: `Title`, `Genres`, `Rating`, `Why` (join the two explanation bullets into one cell, e.g. separated by ` | `).
+3. Format `genres` as a comma-separated string and `vote_average` as `X.X/10`.
+
+### Check before moving on
+- Enter 3 movies and confirm results render as a table with the four columns above.
+- No card markup remaining in the results section.
+
+---
+
 ## If Time Runs Short
 
 Cut in this order — never cut Step 1–4 or Step 6:

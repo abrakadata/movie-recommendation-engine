@@ -1,4 +1,5 @@
 import ast
+import os
 
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 DATA_PATH = "movies_metadata.csv"
+EMB_CACHE_PATH = "embeddings_cache.npy"
 
 
 @st.cache_data
@@ -46,10 +48,26 @@ def build_feature_text(df):
     return df.apply(row_text, axis=1)
 
 
-@st.cache_data
 def build_embedding_matrix(texts):
+    if os.path.exists(EMB_CACHE_PATH):
+        return np.load(EMB_CACHE_PATH)
+
     model = SentenceTransformer("all-MiniLM-L6-v2")
-    return model.encode(texts.tolist(), show_progress_bar=False)
+    texts_list = texts.tolist()
+    batch_size = 64
+    n = len(texts_list)
+    batches = range(0, n, batch_size)
+
+    bar = st.progress(0, text="Building embeddings — first run only…")
+    chunks = []
+    for i in batches:
+        chunks.append(model.encode(texts_list[i:i + batch_size], show_progress_bar=False))
+        bar.progress(min((i + batch_size) / n, 1.0))
+    bar.empty()
+
+    matrix = np.vstack(chunks)
+    np.save(EMB_CACHE_PATH, matrix)
+    return matrix
 
 
 def get_content_scores(seed_indices, matrix):
@@ -106,12 +124,63 @@ def explain(row, seed_genres):
     return [bullet1, bullet2]
 
 
+def _display_table(results):
+    is_fallback = "explanation" not in results.columns
+
+    table = pd.DataFrame({
+        "Title": results["title"],
+        "Genres": results["genres"].apply(lambda g: ", ".join(g)),
+        "Rating": results["vote_average"].apply(lambda v: round(float(v), 1)),
+        "Why": (
+            results["explanation"].apply(lambda e: " · ".join(e))
+            if not is_fallback
+            else ""
+        ),
+    })
+
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Title": st.column_config.TextColumn("Title", width="medium"),
+            "Genres": st.column_config.TextColumn("Genres", width="medium"),
+            "Rating": st.column_config.ProgressColumn(
+                "Rating",
+                min_value=0,
+                max_value=10,
+                format="%.1f",
+                width="small",
+            ),
+            "Why": st.column_config.TextColumn("Why", width="large"),
+        },
+    )
+
+
 # ── Streamlit UI ──────────────────────────────────────────────────────────────
+
+st.markdown("""
+<style>
+div.stButton > button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.4rem 1.2rem;
+}
+div.stButton > button:hover {
+    background-color: #2563eb;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("Movie Recommender")
 
 df = load_data(DATA_PATH)
-emb = build_embedding_matrix(build_feature_text(df))
+if "emb" not in st.session_state:
+    st.session_state.emb = build_embedding_matrix(build_feature_text(df))
+emb = st.session_state.emb
 
 user_input = st.text_input("Enter 3–5 movies you like (comma-separated)")
 
@@ -128,18 +197,8 @@ if st.button("Find Movies"):
         if results.empty:
             st.warning("We couldn't match your titles. Here are some well-rated films.")
             fallback = df.nlargest(5, "pop_score")
-            for _, row in fallback.iterrows():
-                st.markdown(f"**{row['title']}**")
-                st.write(f"Genres: {', '.join(row['genres'])}")
-                st.write(f"Rating: {row['vote_average']:.1f}/10")
-                st.divider()
+            _display_table(fallback)
         else:
             if len(results) < 5:
                 st.info(f"Only {len(results)} recommendation(s) found.")
-            for _, row in results.iterrows():
-                st.markdown(f"**{row['title']}**")
-                st.write(f"Genres: {', '.join(row['genres'])}")
-                st.write(f"Rating: {row['vote_average']:.1f}/10")
-                for bullet in row["explanation"]:
-                    st.write(f"• {bullet}")
-                st.divider()
+            _display_table(results)
