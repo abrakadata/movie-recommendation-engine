@@ -10,6 +10,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 DATA_PATH = "movies_metadata.csv"
 EMB_CACHE_PATH = "embeddings_cache.npy"
 
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
+
 
 @st.cache_data
 def load_data(path):
@@ -76,7 +78,7 @@ def get_content_scores(seed_indices, matrix):
     return scores.mean(axis=0)
 
 
-def recommend(seed_titles, df, matrix, n=5):
+def recommend(seed_titles, df, matrix, content_weight=0.75, pop_weight=0.25, n=5):
     seed_titles = list(dict.fromkeys(seed_titles))  # deduplicate, preserve order
     seed_indices = []
     exclude_indices = []
@@ -93,7 +95,7 @@ def recommend(seed_titles, df, matrix, n=5):
         return pd.DataFrame(), not_found
 
     content_scores = get_content_scores(seed_indices, matrix)
-    hybrid = 0.75 * content_scores + 0.25 * df["pop_score"].values
+    hybrid = content_weight * content_scores + pop_weight * df["pop_score"].values
 
     for idx in exclude_indices:
         hybrid[idx] = 0.0
@@ -172,6 +174,9 @@ div.stButton > button:hover {
     background-color: #2563eb;
     color: white;
 }
+[data-testid="collapsedControl"] {
+    display: none;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -182,23 +187,54 @@ if "emb" not in st.session_state:
     st.session_state.emb = build_embedding_matrix(build_feature_text(df))
 emb = st.session_state.emb
 
-user_input = st.text_input("Enter 3–5 movies you like (comma-separated)")
+_PRIORITY_OPTIONS = {
+    "Similarity 75% — Popularity 25%": (0.75, 0.25),
+    "Popularity 75% — Similarity 25%": (0.25, 0.75),
+    "50% Similarity — 50% Popularity": (0.50, 0.50),
+}
 
-if st.button("Find Movies"):
-    if not user_input.strip():
-        st.warning("Please enter at least one movie title.")
-    else:
-        seed_titles = [t.strip() for t in user_input.split(",") if t.strip()]
-        results, not_found = recommend(seed_titles, df, emb)
+with st.sidebar:
+    st.markdown(
+        '<p style="font-size:1.4rem; font-weight:700; color:#198754;">Recommendation Priority</p>',
+        unsafe_allow_html=True,
+    )
+    priority = st.radio(
+        label="Weighting",
+        options=list(_PRIORITY_OPTIONS.keys()),
+        index=0,
+        label_visibility="collapsed",
+    )
 
-        if not_found:
-            st.warning(f"Couldn't find: {', '.join(not_found)}. Skipped.")
+content_w, pop_w = _PRIORITY_OPTIONS[priority]
 
-        if results.empty:
-            st.warning("We couldn't match your titles. Here are some well-rated films.")
-            fallback = df.nlargest(5, "pop_score")
-            _display_table(fallback)
+if "results" not in st.session_state:
+    user_input = st.text_input("Enter 3–5 movies you like (comma-separated)")
+
+    if st.button("Find Movies"):
+        if not user_input.strip():
+            st.warning("Please enter at least one movie title.")
         else:
-            if len(results) < 5:
-                st.info(f"Only {len(results)} recommendation(s) found.")
-            _display_table(results)
+            seed_titles = [t.strip() for t in user_input.split(",") if t.strip()]
+            results, not_found = recommend(seed_titles, df, emb, content_weight=content_w, pop_weight=pop_w)
+            st.session_state.results = results
+            st.session_state.not_found = not_found
+            st.rerun()
+else:
+    results = st.session_state.results
+    not_found = st.session_state.not_found
+
+    if not_found:
+        st.warning(f"Couldn't find: {', '.join(not_found)}. Skipped.")
+
+    if results.empty:
+        st.warning("We couldn't match your titles. Here are some well-rated films.")
+        _display_table(df.nlargest(5, "pop_score"))
+    else:
+        if len(results) < 5:
+            st.info(f"Only {len(results)} recommendation(s) found.")
+        _display_table(results)
+
+    if st.button("Restart"):
+        del st.session_state.results
+        del st.session_state.not_found
+        st.rerun()
