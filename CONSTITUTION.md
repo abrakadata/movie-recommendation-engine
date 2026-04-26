@@ -1,4 +1,7 @@
-# Project Constitution — Movie Recommender (First-Year AI School Project)
+## Sudent: Abner D. Wilding
+# Class: CAI1001C-2263 | Artificial Intelligence AI Thinking
+
+# Project Constitution - Movie Recommender (First-Year AI School Project)
 
 ## Purpose
 
@@ -40,18 +43,18 @@ Why-explanations are built with f-strings using genre lists and rating numbers p
 
 ---
 
-## What "First-Year School Project" Means Here
+## Project Constraints
 
 | Allowed | Not Allowed |
 |---|---|
-| TF-IDF with cosine similarity | Neural embeddings, transformers |
+| sentence-transformer for similarity | Neural embeddings, transformers |
 | Pandas for all data work | Spark, Dask, Polars |
 | Streamlit UI | Flask, FastAPI, React |
 | Inline constants | Config files, env vars |
 | Manual spot-check tests | pytest, mock, fixtures |
 | One hybrid score formula | A/B tested weighting, ML-tuned weights |
 | f-string explanations | GPT-generated summaries |
-| `movies_metadata.csv` or `tmdb_5000_movies.csv` | API calls, scraping, databases |
+| Kaggle movie files, like `tmdb_5000_movies.csv` | API calls, scraping, databases |
 
 ---
 
@@ -76,7 +79,7 @@ If any of these appear, switch to WSL — do not try to fix the path or recreate
 
 ---
 
-## Decision Checklist (run this before adding anything)
+## Decision Checklist (run this before adding anything to the project docs and codebase)
 
 1. Does this make the app work better for the demo? If no, skip it.
 2. Does a simpler version exist? Use that instead.

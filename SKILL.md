@@ -1,16 +1,14 @@
----
-name: movie-recommendation-engine
-description: 'Build a Streamlit movie recommendation engine with sentence-transformer embeddings, hybrid scoring, configurable weighting sidebar, table results display, and embedding progress bar.'
-argument-hint: 'Describe your deadline, dataset status, and desired recommendation style.'
-user-invocable: true
-disable-model-invocation: false
----
+## Sudent: Abner Wilding, Class: CAI1001C-2263 | Artificial Intelligence Thinking
 
-# Movie Recommendation Engine
+# Project: Movie Buddy Buddy
+# An AI-Powered Movie Recommendation Engine
+
+### A Streamlit movie recommendation engine with sentence-transformer embeddings, hybrid scoring, configurable priority preferences, table results display, and embedding progress bar.
+
 
 ## What This Skill Produces
 
-A working, demo-ready AI-powered movie recommendation app with:
+A working, demo-ready AI-powered movie recommendation desktop app with:
 - Streamlit UI with sidebar, table results, and Restart button
 - TMDB dataset (`movies_metadata.csv`, ~4,775 movies)
 - Sentence-transformer embeddings (`all-MiniLM-L6-v2`, 384-dim)
@@ -71,19 +69,20 @@ Then pick one recommended approach and justify it using:
 Completion check:
 - User can choose an approach in under 2 minutes.
 
-### Step 3: Build Plan (Time-Boxed)
+### Step 3: Build Plan
 
-Create a strict plan that fits the remaining time.
+Create a strict plan that fits the available time of ~6 hours.
 
-Default split:
-1. Data loading and cleaning: 35 minutes
-2. Sentence-transformer embeddings + cosine similarity: 40 minutes
-3. Popularity score (Bayesian normalization): 20 minutes
+1. Data loading and cleaning: 45 minutes
+2. Sentence-transformer embeddings + cosine similarity: 45 minutes
+3. Popularity score (Bayesian normalization): 30 minutes
 4. Hybrid scoring + top-5 output: 30 minutes
-5. Why explanations: 20 minutes
-6. Streamlit UI (sidebar, table, progress bar, Restart button): 45 minutes
-7. Edge case hardening: 20 minutes
+5. Why explanations: 44 minutes
+6. Streamlit UI (sidebar, table, progress bar, Restart button): 120 minutes
+7. Edge case hardening: 30 minutes
 8. README and demo prep: 10 minutes
+9. Security review and final polish: 15 minutes
+10. Buffer for unexpected issues: 15 minutes
 
 If time is short, shrink UI polish first — never cut Steps 1–4.
 
@@ -112,7 +111,7 @@ Completion check:
 
 For each recommendation generate two bullets:
 - Similarity: shared genre names between result and seed union; fallback to "Similar themes and storyline".
-- Quality: `"Rated X.X/10 by audiences"` or `"Popular with audiences"` if rating missing.
+- Quality: `"Rated X.X/10"`if rating missing.
 
 Display as a single joined string in the Why column (` · ` separator).
 

@@ -53,7 +53,10 @@ def build_feature_text(df):
 
 def build_embedding_matrix(texts):
     if os.path.exists(EMB_CACHE_PATH):
-        return np.load(EMB_CACHE_PATH)
+        cached = np.load(EMB_CACHE_PATH)
+        if len(cached) == len(texts):
+            return cached
+        os.remove(EMB_CACHE_PATH)
 
     model = SentenceTransformer("all-MiniLM-L6-v2")
     texts_list = texts.tolist()
@@ -183,11 +186,14 @@ div[role="radiogroup"] label {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Movie Recommendations" if "results" in st.session_state else "Enter some movies you like")
+title_slot = st.empty()
+title_slot.title("Movie Recommendations" if "results" in st.session_state else "Enter some movies you like")
 
 df = load_data(DATA_PATH)
 if "emb" not in st.session_state:
+    title_slot.title("Updating Embeddings…")
     st.session_state.emb = build_embedding_matrix(build_feature_text(df))
+    title_slot.title("Movie Recommendations" if "results" in st.session_state else "Enter some movies you like")
 emb = st.session_state.emb
 
 _PRIORITY_OPTIONS = {
