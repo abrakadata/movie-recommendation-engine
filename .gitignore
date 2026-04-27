@@ -5,3 +5,6 @@ __pycache__/
 .env
 movies_metadata.csv
 embeddings_cache.npy
+embeddings.npy
+movies.pkl
+mpst_full_data.csv

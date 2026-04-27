@@ -1,214 +1,146 @@
-# Build Plan — Movie Recommendation Engine
+# Implementation Plan — v2
 
-Total estimated time: 4 hours. Each step has a concrete output and a pass/fail check before moving on.
-
----
-
-## Step 1 — Environment & Data (35 min)
-
-**Goal:** Confirm the dataset loads and the right columns exist.
-
-### Tasks
-1. Create `app.py` with only imports and `DATA_PATH = "movies_metadata.csv"` at the top.
-2. Write `load_data(path)` — reads CSV, selects columns, drops rows with empty `overview` or `genres`, returns a clean DataFrame.
-3. Columns to keep: `title`, `genres`, `overview`, `popularity`, `vote_average`, `vote_count`.
-4. Parse `genres` column: it arrives as a JSON string like `[{"id": 18, "name": "Drama"}]` — extract genre names into a plain Python list.
-
-### Check before moving on
-- Run `python app.py` in a `__main__` block, print `df.shape` and `df.head(2)`.
-- Shape should be roughly `(4800, 6)` after drops.
-- `genres` column should contain lists like `["Drama", "Romance"]`, not raw JSON strings.
+Ordered checklist. Complete each step fully before moving to the next. Steps within a phase can be verified in isolation.
 
 ---
 
-## Step 2 — Content Vectors (40 min)
+## Phase 1 — Precompute (`precompute.py`)
 
-**Goal:** Build a semantic embedding matrix from movie text and compute similarity to seed movies.
+This script runs once from the terminal before launching the app. It produces the two runtime artifacts the app depends on.
 
-### Tasks
-1. Write `build_feature_text(df)` — concatenates genre names + overview into one string per movie.
-   - Example: `"Drama Romance A young woman falls in love..."`.
-2. Write `build_embedding_matrix(texts)` — encodes texts with `all-MiniLM-L6-v2` (sentence-transformers), returns a `(n, 384)` numpy array. Decorated with `@st.cache_data`.
-3. Write `get_content_scores(seed_indices, matrix)` — computes cosine similarity between seed rows and all rows, averages across seeds, returns a 1D array of scores.
+- [ ] **1.1** Load `mpst_full_data.csv` with pandas
+- [ ] **1.2** Drop rows where `plot_synopsis` or `title` is null
+- [ ] **1.3** Deduplicate on `imdb_id`, keep first occurrence
+- [ ] **1.4** Strip whitespace from `title` and `tags` columns
+- [ ] **1.5** Load `movies_metadata.csv`, keep `title`, `vote_average`, `vote_count`
+- [ ] **1.6** Normalize titles in both datasets (lowercase + strip) into temporary join-key columns
+- [ ] **1.7** Left-join MPST df on normalized title → TMDB popularity fields
+- [ ] **1.8** For unmatched rows: fill `vote_average` with TMDB median, fill `vote_count` with `0`
+- [ ] **1.9** Compute `pop_score = (vote_average / 10) * log1p(vote_count) / max(log1p(vote_count))`
+- [ ] **1.10** Drop the temporary join-key columns; keep only MPST columns + `pop_score`
+- [ ] **1.11** Reset index
+- [ ] **1.12** Load `SentenceTransformer("all-MiniLM-L6-v2")`
+- [ ] **1.13** Encode `plot_synopsis` in batches of 64 with `show_progress_bar=True`
+- [ ] **1.14** Save embeddings as `embeddings.npy` (float32, shape [N, 384])
+- [ ] **1.15** Save cleaned dataframe as `movies.pkl`
+- [ ] **1.16** Print: row count, both file sizes, time elapsed
 
-### Check before moving on
-- Pick two known movies, get their row indices, call `get_content_scores`.
-- Top 10 results should include movies with similar genres or themes — verify by eye.
-- No NaN values in the score array.
-
----
-
-## Step 3 — Popularity Score (20 min)
-
-**Goal:** Add a normalized popularity prior so well-known films get a small boost.
-
-### Tasks
-1. Write `build_popularity_scores(df)` — combine `vote_average` and `vote_count` into a weighted score using the TMDB Bayesian formula or a simpler min-max normalization. Normalize to [0, 1].
-   - Simple version: `score = (vote_average / 10) * log1p(vote_count) / max(log1p(vote_count))`.
-2. Store result as a column `pop_score` on the DataFrame (done once at load time).
-
-### Check before moving on
-- Print the top 10 movies by `pop_score` — they should be recognizable blockbusters or classics.
-- No values outside [0, 1].
+**Verify:** Run `python precompute.py`. Confirm `movies.pkl` and `embeddings.npy` exist. Confirm `pop_score` column is present in the loaded pkl. Confirm no nulls in `title` or `plot_synopsis`.
 
 ---
 
-## Step 4 — Hybrid Scoring & Top-5 Output (30 min)
+## Phase 2 — Entry Point (`app.py`)
 
-**Goal:** Combine content and popularity scores, filter seeds, return top 5.
+Replace all existing content with navigation-only.
 
-### Tasks
-1. Write `recommend(seed_titles, df, matrix, n=5)`:
-   - Fuzzy-match each seed title to a row (case-insensitive `str.contains`; take first match).
-   - Collect seed indices; skip unmatched titles with a warning.
-   - Call `get_content_scores` to get content array.
-   - Hybrid: `score = 0.75 * content_score + 0.25 * pop_score`.
-   - Zero out seed movie rows to exclude them from results.
-   - Return top `n` rows as a DataFrame with columns: `title`, `genres`, `vote_average`, `score`.
-2. Handle edge case: if fewer than 1 seed matches, return empty DataFrame.
+- [ ] **2.1** Delete all existing logic from `app.py`
+- [ ] **2.2** Add `st.navigation` with two pages:
+  - `pages/free-search-page.py` — title `"Free-text search"`, icon `"🔍"`
+  - `pages/similarity-page.py` — title `"Movie similarity"`, icon `"🎬"`
+- [ ] **2.3** Call `pages.run()`
 
-### Check before moving on
-- Call `recommend(["The Dark Knight", "Inception"], df, emb)`.
-- Results should be 5 action/thriller films — none of the seeds should appear.
-- Call with a typo like `"Incpetion"` — should still match (via `str.contains`) or gracefully skip.
-- Call with all unrecognized titles — should return empty DataFrame without crashing.
+**Verify:** `streamlit run app.py` launches without error. Both page tabs appear in the top nav bar.
 
 ---
 
-## Step 5 — Why Explanations (20 min)
+## Phase 3 — Shared Utilities (`utils.py`)
 
-**Goal:** Generate a two-bullet explanation for each of the 5 results.
+Both pages need the same model and data. Centralise loading here.
 
-### Tasks
-1. Write `explain(row, seed_genres)` — returns a two-item list of strings:
-   - Bullet 1 (similarity): shared genre names between `row.genres` and the union of seed genres.
-     - If no shared genres: fall back to `"Similar themes and storyline"`.
-   - Bullet 2 (quality): `f"Rated {row.vote_average:.1f}/10 by audiences"` or `"Popular with audiences"` if vote_average is missing.
-2. Call `explain` for each of the 5 results and attach to the output.
+- [ ] **3.1** Create `utils.py` in project root
+- [ ] **3.2** Implement `load_model()` with `@st.cache_resource` — returns `SentenceTransformer("all-MiniLM-L6-v2")`
+- [ ] **3.3** Implement `load_data()` with `@st.cache_data` — loads `movies.pkl` (dataframe) and `embeddings.npy` (numpy array), returns both
+- [ ] **3.4** Add guard: if either file is missing, call `st.error("Run python precompute.py first.")` and `st.stop()`
+- [ ] **3.5** Implement `render_sidebar(df)` — renders all shared sidebar widgets and returns a dict:
+  - `n_results` — slider, 3–15, default 5
+  - `tag_filter` — multiselect, options from `sorted(set(tag.strip() for tags in df["tags"] for tag in tags.split(",")))`, default empty
+  - `min_similarity` — slider, 0.0–1.0, default 0.0, step 0.05
+  - `similarity_weight` — slider, 0.0–1.0, default 0.75, step 0.05, label `"Similarity weight (vs. popularity)"`
+- [ ] **3.6** Implement `format_match(score)` — returns `"🟢 {n}%"` if ≥ 0.75, `"🟡 {n}%"` if ≥ 0.50, else `"🔴 {n}%"` where `n = round(score * 100)`
+- [ ] **3.7** Implement `apply_filters(df, content_scores, tag_filter, min_similarity)` — zeros out scores for rows that fail the tag filter or fall below the similarity threshold; returns the modified score array
+- [ ] **3.8** Implement `display_results(df, indices, scores)` — builds and renders the `st.dataframe` with columns: `Title`, `Tags`, `Match` (via `format_match`), `Synopsis` (first 200 chars + `"…"`)
 
-### Check before moving on
-- Every row in the top-5 output has exactly two non-empty explanation strings.
-- No crashes on rows with empty genre lists or missing vote_average.
-
----
-
-## Step 6 — Streamlit UI (45 min)
-
-**Goal:** A single-page app that takes movie titles and shows results.
-
-### Tasks
-1. Add `@st.cache_data` to `load_data` and `build_embedding_matrix` — called once at startup.
-2. UI layout (top to bottom):
-   - Title: `"Movie Recommender"`
-   - Text input: `"Enter 3–5 movies you like (comma-separated)"`
-   - Button: `"Find Movies"`
-   - On click: parse input, call `recommend`, display results.
-3. Results display: for each of the 5 recommendations show:
-   - Movie title (bold)
-   - Genres as a comma-separated string
-   - Rating
-   - Two explanation bullets
-4. Error states:
-   - No input: show `"Please enter at least one movie title."`
-   - No matches found: show `"None of your titles were found. Try checking spelling."`
-   - Fewer than 5 results: show however many exist with a note.
-
-### Check before moving on
-- Launch with `streamlit run app.py`.
-- Enter `"The Dark Knight, Inception, Interstellar"` → 5 results appear with explanations.
-- Clear input and click button → error message appears, no crash.
-- Enter a completely unknown title → graceful message, no crash.
+**Verify:** Import `utils` in a scratch script; call `load_data()` and confirm shapes match expected row count and 384 dimensions.
 
 ---
 
-## Step 7 — Edge Case Hardening (20 min)
+## Phase 4 — Free-Text Search Page (`pages/free-search-page.py`)
 
-**Goal:** Close the five validation cases from the skill spec.
+- [ ] **4.1** Create `pages/` directory
+- [ ] **4.2** Create `pages/free-search-page.py`
+- [ ] **4.3** Import from `utils`: `load_model`, `load_data`, `render_sidebar`, `apply_filters`, `display_results`
+- [ ] **4.4** Load model, df, and embeddings at module level (cached)
+- [ ] **4.5** Call `render_sidebar(df)` and unpack the returned controls
+- [ ] **4.6** Render `st.text_area` — label `"Describe the kind of movie you want to watch"`, placeholder `"A psychological thriller where nothing is what it seems"`, height 100
+- [ ] **4.7** Render `st.button("Find Movies")`
+- [ ] **4.8** On button click:
+  - Validate: show `st.warning("Please enter a description.")` if blank and stop
+  - Encode query: `query_vec = model.encode([query_text])`
+  - Compute `content_scores = cosine_similarity(query_vec, embeddings)[0]`
+  - Compute `hybrid = similarity_weight * content_scores + (1 - similarity_weight) * df["pop_score"].values`
+  - Call `apply_filters` to zero out tag/threshold exclusions
+  - Rank: `top_idx = hybrid.argsort()[::-1][:n_results]`
+  - If all scores are zero after filtering: show `st.info("No movies matched your filters...")` and stop
+  - Call `display_results(df, top_idx, content_scores[top_idx])`
 
-| Case | Expected behavior |
+**Verify:** Enter a description, click Find Movies. Table appears with correct columns. Tag filter and similarity threshold narrow results correctly.
+
+---
+
+## Phase 5 — Movie Similarity Page (`pages/similarity-page.py`)
+
+- [ ] **5.1** Create `pages/similarity-page.py`
+- [ ] **5.2** Import from `utils`: `load_model`, `load_data`, `render_sidebar`, `apply_filters`, `display_results`
+- [ ] **5.3** Load model, df, and embeddings at module level (cached)
+- [ ] **5.4** Call `render_sidebar(df)` and unpack the returned controls
+- [ ] **5.5** Render `st.selectbox("Pick a movie you like", options=sorted(df["title"].tolist()))`
+- [ ] **5.6** Look up selected title's index in df (exact match against sorted list — no fuzzy matching needed)
+- [ ] **5.7** Render seed movie info box using `st.info()`:
+  ```
+  🎬  <Title>
+  Tags: <tags>
+  <First 200 characters of plot_synopsis>...
+  ```
+- [ ] **5.8** Compute:
+  - `seed_vec = embeddings[idx].reshape(1, -1)`
+  - `content_scores = cosine_similarity(seed_vec, embeddings)[0]`
+  - `hybrid = similarity_weight * content_scores + (1 - similarity_weight) * df["pop_score"].values`
+  - `hybrid[idx] = 0.0` — exclude seed from results
+- [ ] **5.9** Call `apply_filters` to zero out tag/threshold exclusions
+- [ ] **5.10** Rank: `top_idx = hybrid.argsort()[::-1][:n_results]`
+- [ ] **5.11** If all scores are zero after filtering: show `st.info("No movies matched your filters...")`  and stop
+- [ ] **5.12** Call `display_results(df, top_idx, content_scores[top_idx])`
+
+**Verify:** Select a movie. Seed info box appears above table. Selected movie does not appear in results. Tag filter works. Changing the similarity weight slider reruns and re-ranks.
+
+---
+
+## Phase 6 — Smoke Test
+
+Manual end-to-end checks before calling v2 done.
+
+- [ ] **6.1** Cold start: delete `movies.pkl` and `embeddings.npy`, run `python precompute.py`, confirm both files regenerated
+- [ ] **6.2** Missing file guard: rename `movies.pkl` temporarily, confirm `st.error` and `st.stop` fire on page load
+- [ ] **6.3** Free-text search: empty submit shows warning; short description returns results; all Match values show emoji prefix
+- [ ] **6.4** Free-text search: select 2–3 tags, confirm only tag-matching movies appear
+- [ ] **6.5** Free-text search: raise min-similarity to 0.80, confirm row count drops
+- [ ] **6.6** Movie similarity: selected movie is never in the results table
+- [ ] **6.7** Movie similarity: seed info box shows correct title, tags, and synopsis excerpt
+- [ ] **6.8** Both pages: changing `n_results` slider changes table row count
+- [ ] **6.9** Both pages: changing similarity weight slider re-ranks results (high weight → top results have strong synopsis match; low weight → popular titles rank higher)
+- [ ] **6.10** Navigate between the two pages; sidebar state persists across page switch
+
+---
+
+## Files Created / Modified
+
+| File | Action |
 |---|---|
-| 3–5 valid titles | Returns 5 recommendations |
-| Unknown title | Clear retry message |
-| Duplicate titles | Treated as one seed |
-| Missing dataset fields | Fallback logic, no crash |
-| Empty results | Helpful fallback message |
-
-### Tasks
-- Deduplicate seed list before matching.
-- If `vote_average` or `vote_count` is NaN, fill with column median at load time.
-- If `overview` is empty after stripping, fill with empty string (TF-IDF handles it).
-- If the result set is empty, show the top 5 by `pop_score` as a fallback with a note: `"We couldn't match your titles. Here are some well-rated films."`.
-
-### Check before moving on
-- Manually trigger each of the five cases and confirm the expected behavior.
-
----
-
-## Step 8 — README & Demo Script (10 min)
-
-**Goal:** Enough documentation to run the app and explain it in 2 minutes.
-
-### Tasks
-1. Write a `README.md` with:
-   - One-sentence description.
-   - Install command: `pip install streamlit pandas scikit-learn`.
-   - Run command: `streamlit run app.py`.
-   - Dataset: place `movies_metadata.csv` in the same folder.
-2. Mentally rehearse the demo: input 3 movies, show results, explain the hybrid scoring in one sentence.
-
----
-
-## Time Budget Summary
-
-| Step | Task | Time |
-|---|---|---|
-| 1 | Data loading | 35 min |
-| 2 | Content vectors | 40 min |
-| 3 | Popularity score | 20 min |
-| 4 | Hybrid scoring | 30 min |
-| 5 | Explanations | 20 min |
-| 6 | Streamlit UI | 45 min |
-| 7 | Edge case hardening | 20 min |
-| 8 | README & demo prep | 10 min |
-| **Total** | | **3h 40min** |
-
-20-minute buffer for unexpected issues.
-
----
-
-## Step 9 — Embedding Progress Bar ✅
-
-**Goal:** Show a Streamlit progress bar while embeddings are being built so the user knows the app is working.
-
-**Implemented:** Batched encoding with `st.progress`, disk cache at `embeddings_cache.npy`, `st.session_state` prevents recomputation on reruns. Progress bar only shows on cold start.
-
----
-
-## Step 10 — Table Display for Recommendations ✅
-
-**Goal:** Replace the card-style results display with a compact, scannable table.
-
-**Implemented:** `st.dataframe` with `column_config` — Title, Genres, Rating (ProgressColumn), Why columns. `hide_index=True`, `use_container_width=True`.
-
----
-
-## Step 11 — UI Polish ✅
-
-**Goal:** Sleek, professional UI.
-
-**Implemented:**
-- Blue button (`#3b82f6`) with hover state (`#2563eb`)
-- Non-collapsible sidebar with Recommendation Priority radio selector (3 weight presets)
-- Sidebar header in Bootstrap green (`#198754`) at `2rem` bold
-- Restart button replaces Find Movies after results are shown
-- Title updated to "Movie Recommendation Engine"
-
----
-
-## Step 12 — Dataset Cleanup ✅
-
-**Goal:** Remove low-quality rows that degrade recommendation quality.
-
-**Implemented:** Deleted 28 movies with empty genre lists (obscure/foreign/indie titles with no genre metadata). Dataset trimmed from 4,803 → 4,775 movies.
-
----
+| `precompute.py` | Create |
+| `app.py` | Rewrite (navigation only) |
+| `utils.py` | Create |
+| `pages/free-search-page.py` | Create |
+| `pages/similarity-page.py` | Create |
+| `embeddings_cache.npy` | Delete (replaced by `embeddings.npy`) |
+| `movies_metadata.csv` | Keep as raw input |
+| `mpst_full_data.csv` | Keep as raw input |
