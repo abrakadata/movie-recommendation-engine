@@ -33,6 +33,28 @@ def render_sidebar(df):
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
     }
+    [data-testid="stSidebarNavLink"] span {
+        font-size: 1.2rem !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] [data-id="placeholder"] {
+        color: rgba(255, 255, 255, 0.25) !important;
+    }
+    [data-testid="stButton"] > button {
+        background-color: #0d6efd !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 0.375rem !important;
+        padding: 0.5rem 1.25rem !important;
+        font-weight: 500 !important;
+        transition: background-color 0.15s ease-in-out !important;
+    }
+    [data-testid="stButton"] > button:hover {
+        background-color: #0b5ed7 !important;
+        color: #ffffff !important;
+    }
+    [data-testid="stButton"] > button:active {
+        background-color: #0a58ca !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     all_tags = sorted({
@@ -41,13 +63,17 @@ def render_sidebar(df):
         for tag in tags.split(",")
         if tag.strip()
     })
+    _priority_options = {
+        "Similarity 75% — Popularity 25%": 0.75,
+        "Popularity 75% — Similarity 25%": 0.25,
+        "50% Similarity — 50% Popularity": 0.50,
+    }
     with st.sidebar:
-        st.markdown("## 🎬 Movie Recommender")
+        priority_label = st.radio("Priority", options=list(_priority_options.keys()))
+        similarity_weight = _priority_options[priority_label]
+        st.divider()
         n_results = st.slider("Number of results", min_value=3, max_value=15, value=5)
         tag_filter = st.multiselect("Tag filter", options=all_tags)
-        similarity_weight = st.slider("Similarity weight (vs. popularity)",
-                                      min_value=0.0, max_value=1.0,
-                                      value=0.75, step=0.05)
     return {
         "n_results": n_results,
         "tag_filter": tag_filter,
@@ -76,19 +102,21 @@ def apply_filters(df, content_scores, tag_filter):
 def display_results(df, indices, scores):
     rows = df.iloc[indices]
     table = pd.DataFrame({
-        "Title":    rows["title"].values,
-        "Tags":     rows["tags"].values,
-        "Match":    [format_match(s) for s in scores],
-        "Synopsis": [s[:200] + "…" for s in rows["plot_synopsis"].values],
+        "Title":      rows["title"].values,
+        "Tags":       rows["tags"].values,
+        "Match":      [format_match(s) for s in scores],
+        "Popularity": [f"{round(s * 100)}%" for s in rows["pop_score"].values],
+        "Synopsis":   [s[:200] + "…" for s in rows["plot_synopsis"].values],
     })
     st.dataframe(
         table,
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Title":    st.column_config.TextColumn("Title",    width="medium"),
-            "Tags":     st.column_config.TextColumn("Tags",     width="medium"),
-            "Match":    st.column_config.TextColumn("Match",    width="small"),
-            "Synopsis": st.column_config.TextColumn("Synopsis", width="large"),
+            "Title":      st.column_config.TextColumn("Title",      width="medium"),
+            "Tags":       st.column_config.TextColumn("Tags",       width="medium"),
+            "Match":      st.column_config.TextColumn("Match",      width="small"),
+            "Popularity": st.column_config.TextColumn("Popularity", width="small"),
+            "Synopsis":   st.column_config.TextColumn("Synopsis",   width="large"),
         },
     )

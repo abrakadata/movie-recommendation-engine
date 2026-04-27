@@ -32,6 +32,12 @@ def main():
     df["title"] = df["title"].str.strip()
     df["tags"] = df["tags"].fillna("").str.strip()
 
+    # deduplicate on normalized title (catches same movie with different imdb_ids)
+    df["_norm_title"] = df["title"].str.lower()
+    df = df.drop_duplicates(subset=["_norm_title"], keep="first")
+    df = df.drop(columns=["_norm_title"])
+
+
     # --- Join TMDB popularity ---
     # 1.5
     tmdb = pd.read_csv(TMDB_PATH, low_memory=False)[["title", "vote_average", "vote_count"]]

@@ -10,10 +10,9 @@ controls = render_sidebar(df)
 
 st.header("Free-text search")
 
-query_text = st.text_area(
+query_text = st.text_input(
     "Describe the kind of movie you want to watch",
     placeholder="A psychological thriller where nothing is what it seems",
-    height=100,
 )
 
 if st.button("Find Movies"):
