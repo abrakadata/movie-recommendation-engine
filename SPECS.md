@@ -61,10 +61,6 @@ The title join is imperfect. Some MPST titles will not match a TMDB row. For tho
 
 at interaction time. This keeps the sidebar `similarity_weight` slider live without invalidating the cached embeddings or the runtime dataframe.
 
-### Why the min-similarity threshold is applied to content similarity, not the hybrid score
-
-The threshold is intended to guard semantic relevance. If it were applied to the hybrid score, a popular but weakly related movie could survive the cutoff. Applying the threshold to `content_scores` preserves the meaning of the filter: below-threshold items are not similar enough, regardless of popularity.
-
 ### Why the selected movie is excluded by zeroing its score
 
 In movie-similarity mode, the seed movie should never recommend itself. Zeroing its hybrid score preserves array/DataFrame index alignment and avoids a filtering step that would require remapping row indices after ranking.

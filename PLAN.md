@@ -54,10 +54,9 @@ Both pages need the same model and data. Centralise loading here.
 - [ ] **3.5** Implement `render_sidebar(df)` — renders all shared sidebar widgets and returns a dict:
   - `n_results` — slider, 3–15, default 5
   - `tag_filter` — multiselect, options from `sorted(set(tag.strip() for tags in df["tags"] for tag in tags.split(",")))`, default empty
-  - `min_similarity` — slider, 0.0–1.0, default 0.0, step 0.05
   - `similarity_weight` — slider, 0.0–1.0, default 0.75, step 0.05, label `"Similarity weight (vs. popularity)"`
 - [ ] **3.6** Implement `format_match(score)` — returns `"🟢 {n}%"` if ≥ 0.75, `"🟡 {n}%"` if ≥ 0.50, else `"🔴 {n}%"` where `n = round(score * 100)`
-- [ ] **3.7** Implement `apply_filters(df, content_scores, tag_filter, min_similarity)` — zeros out scores for rows that fail the tag filter or fall below the similarity threshold; returns the modified score array
+- [ ] **3.7** Implement `apply_filters(df, content_scores, tag_filter)` — zeros out scores for rows that fail the tag filter; returns the modified score array
 - [ ] **3.8** Implement `display_results(df, indices, scores)` — builds and renders the `st.dataframe` with columns: `Title`, `Tags`, `Match` (via `format_match`), `Synopsis` (first 200 chars + `"…"`)
 
 **Verify:** Import `utils` in a scratch script; call `load_data()` and confirm shapes match expected row count and 384 dimensions.
@@ -78,12 +77,12 @@ Both pages need the same model and data. Centralise loading here.
   - Encode query: `query_vec = model.encode([query_text])`
   - Compute `content_scores = cosine_similarity(query_vec, embeddings)[0]`
   - Compute `hybrid = similarity_weight * content_scores + (1 - similarity_weight) * df["pop_score"].values`
-  - Call `apply_filters` to zero out tag/threshold exclusions
+  - Call `apply_filters` to zero out tag exclusions
   - Rank: `top_idx = hybrid.argsort()[::-1][:n_results]`
   - If all scores are zero after filtering: show `st.info("No movies matched your filters...")` and stop
   - Call `display_results(df, top_idx, content_scores[top_idx])`
 
-**Verify:** Enter a description, click Find Movies. Table appears with correct columns. Tag filter and similarity threshold narrow results correctly.
+**Verify:** Enter a description, click Find Movies. Table appears with correct columns. Tag filter narrows results correctly.
 
 ---
 
@@ -106,7 +105,7 @@ Both pages need the same model and data. Centralise loading here.
   - `content_scores = cosine_similarity(seed_vec, embeddings)[0]`
   - `hybrid = similarity_weight * content_scores + (1 - similarity_weight) * df["pop_score"].values`
   - `hybrid[idx] = 0.0` — exclude seed from results
-- [ ] **5.9** Call `apply_filters` to zero out tag/threshold exclusions
+- [ ] **5.9** Call `apply_filters` to zero out tag exclusions
 - [ ] **5.10** Rank: `top_idx = hybrid.argsort()[::-1][:n_results]`
 - [ ] **5.11** If all scores are zero after filtering: show `st.info("No movies matched your filters...")`  and stop
 - [ ] **5.12** Call `display_results(df, top_idx, content_scores[top_idx])`
@@ -123,12 +122,11 @@ Manual end-to-end checks before calling v2 done.
 - [ ] **6.2** Missing file guard: rename `movies.pkl` temporarily, confirm `st.error` and `st.stop` fire on page load
 - [ ] **6.3** Free-text search: empty submit shows warning; short description returns results; all Match values show emoji prefix
 - [ ] **6.4** Free-text search: select 2–3 tags, confirm only tag-matching movies appear
-- [ ] **6.5** Free-text search: raise min-similarity to 0.80, confirm row count drops
-- [ ] **6.6** Movie similarity: selected movie is never in the results table
-- [ ] **6.7** Movie similarity: seed info box shows correct title, tags, and synopsis excerpt
-- [ ] **6.8** Both pages: changing `n_results` slider changes table row count
-- [ ] **6.9** Both pages: changing similarity weight slider re-ranks results (high weight → top results have strong synopsis match; low weight → popular titles rank higher)
-- [ ] **6.10** Navigate between the two pages; sidebar state persists across page switch
+- [ ] **6.5** Movie similarity: selected movie is never in the results table
+- [ ] **6.6** Movie similarity: seed info box shows correct title, tags, and synopsis excerpt
+- [ ] **6.7** Both pages: changing `n_results` slider changes table row count
+- [ ] **6.8** Both pages: changing similarity weight slider re-ranks results (high weight → top results have strong synopsis match; low weight → popular titles rank higher)
+- [ ] **6.9** Navigate between the two pages; sidebar state persists across page switch
 
 ---
 

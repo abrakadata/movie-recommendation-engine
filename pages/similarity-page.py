@@ -24,12 +24,12 @@ hybrid = (
     + (1 - controls["similarity_weight"]) * df["pop_score"].values
 )
 hybrid[idx] = 0.0
-hybrid = apply_filters(df, hybrid, controls["tag_filter"], controls["min_similarity"])
+hybrid = apply_filters(df, hybrid, controls["tag_filter"])
 
 top_idx = hybrid.argsort()[::-1][: controls["n_results"]]
 
 if hybrid[top_idx].max() == 0.0:
-    st.info("No movies matched your filters. Try relaxing the tag filter or lowering the similarity threshold.")
+    st.info("No movies matched your filters. Try relaxing the tag filter.")
     st.stop()
 
 display_results(df, top_idx, content_scores[top_idx])

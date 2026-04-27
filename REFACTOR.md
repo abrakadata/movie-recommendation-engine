@@ -118,7 +118,6 @@ Mode selection is handled by `st.navigation` (Streamlit multi-page). No sidebar 
 | App title | text | "🎬 Movie Recommender" |
 | Number of results | `st.slider` | Min 3, max 15, default 5 |
 | Tag filter | `st.multiselect` | All 71 unique tags from dataset, optional |
-| Min similarity | `st.slider` | 0.0 to 1.0, default 0.0, step 0.05 |
 | Similarity weight | `st.slider` | 0.0 to 1.0, default 0.75, step 0.05; label: "Similarity weight (vs. popularity)" |
 
 Popularity weight is derived: `pop_weight = 1.0 - similarity_weight`.
@@ -151,15 +150,14 @@ Depends on active page (see below).
 5. Apply tag filter (if tags selected):
        keep rows where ANY selected tag appears in movie's tags string
        zero out hybrid scores for excluded rows
-6. Apply min similarity threshold (zero out rows where content_scores < threshold)
-7. Rank: argsort descending, take top-N
-8. Display results (see Results Table spec below)
+6. Rank: argsort descending, take top-N
+7. Display results (see Results Table spec below)
 ```
 
 ### Edge Cases
 
 - Empty query → `st.warning("Please enter a description.")`
-- No results after filtering → `st.info("No movies matched your filters. Try relaxing the tag filter or lowering the similarity threshold.")`
+- No results after filtering → `st.info("No movies matched your filters. Try relaxing the tag filter.")`
 
 ---
 
@@ -183,8 +181,7 @@ Depends on active page (see below).
        hybrid = similarity_weight * content_scores + pop_weight * df["pop_score"].values
 5. Zero out hybrid score for the selected movie itself (don't recommend itself)
 6. Apply tag filter (same as Page 1)
-7. Apply min similarity threshold (zero out rows where content_scores < threshold)
-8. Rank: argsort descending, take top-N
+7. Rank: argsort descending, take top-N
 9. Show the seed movie's details in a highlighted info box above results
 10. Display results (see Results Table spec below)
 ```

@@ -45,15 +45,12 @@ def render_sidebar(df):
         st.markdown("## 🎬 Movie Recommender")
         n_results = st.slider("Number of results", min_value=3, max_value=15, value=5)
         tag_filter = st.multiselect("Tag filter", options=all_tags)
-        min_similarity = st.slider("Min similarity", min_value=0.0, max_value=1.0,
-                                   value=0.0, step=0.05)
         similarity_weight = st.slider("Similarity weight (vs. popularity)",
                                       min_value=0.0, max_value=1.0,
                                       value=0.75, step=0.05)
     return {
         "n_results": n_results,
         "tag_filter": tag_filter,
-        "min_similarity": min_similarity,
         "similarity_weight": similarity_weight,
     }
 
@@ -67,13 +64,12 @@ def format_match(score):
     return f"🔴 {n}%"
 
 
-def apply_filters(df, content_scores, tag_filter, min_similarity):
+def apply_filters(df, content_scores, tag_filter):
     scores = content_scores.copy()
     if tag_filter:
         for i, row_tags in enumerate(df["tags"]):
             if not any(t.lower() in row_tags.lower() for t in tag_filter):
                 scores[i] = 0.0
-    scores[content_scores < min_similarity] = 0.0
     return scores
 
 
