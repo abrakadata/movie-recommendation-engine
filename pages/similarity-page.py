@@ -6,7 +6,7 @@ from utils import apply_filters, display_results, load_data, load_model, render_
 
 model = load_model()
 df, embeddings = load_data()
-controls = render_sidebar(df)
+controls = render_sidebar(df, "Movie similarity")
 
 st.header("Movie similarity")
 

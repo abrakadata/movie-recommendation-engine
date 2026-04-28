@@ -25,7 +25,7 @@ def load_data():
     return df, embeddings
 
 
-def render_sidebar(df):
+def render_sidebar(df, current_page="Search"):
     st.markdown("""
     <style>
     div[data-testid="stMainBlockContainer"] {
@@ -33,8 +33,8 @@ def render_sidebar(df):
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
     }
-    [data-testid="stSidebarNavLink"] span {
-        font-size: 1.2rem !important;
+    [data-testid="stSidebarNav"] {
+        display: none !important;
     }
     [data-testid="stSelectbox"] [data-baseweb="select"] [data-id="placeholder"] {
         color: rgba(255, 255, 255, 0.25) !important;
@@ -69,6 +69,18 @@ def render_sidebar(df):
         "50% Similarity — 50% Popularity": 0.50,
     }
     with st.sidebar:
+        st.title("Settings")
+        mode = st.radio(
+            "App mode",
+            options=["Search", "Movie similarity"],
+            index=0 if current_page == "Search" else 1,
+        )
+        if mode != current_page:
+            st.switch_page(
+                "pages/free-search-page.py" if mode == "Search"
+                else "pages/similarity-page.py"
+            )
+        st.divider()
         priority_label = st.radio("Priority", options=list(_priority_options.keys()))
         similarity_weight = _priority_options[priority_label]
         st.divider()
