@@ -8,7 +8,7 @@ model = load_model()
 df, embeddings = load_data()
 controls = render_sidebar(df)
 
-st.header("Free-text search")
+st.header("Search")
 
 query_text = st.text_input(
     "Describe the kind of movie you want to watch",
